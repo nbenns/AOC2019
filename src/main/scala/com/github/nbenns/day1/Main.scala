@@ -5,7 +5,7 @@ import com.github.nbenns.shared.File.{fileReadStreamByLine, fromResource}
 import zio._
 import zio.console._
 import zio.nio.channels.AsynchronousFileChannel
-import zio.nio.file.Path
+import zio.nio.core.file.Path
 import zio.stream.Stream
 import zio.stream.interop.catz._
 
@@ -14,16 +14,15 @@ object Main extends App {
     fileReadStreamByLine(chunkSize, fileChannel)
       .flatMap(strToLong[Stream])
       .map(method)
-      .fold(0L)(_ + _)
+      .runSum
 
   val file: String = fromResource("day1/input.txt")
 
-  override def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
+  override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] =
     AsynchronousFileChannel
       .open(Path(file))
       .use(calculateFuel(Part2, 20))
       .map(_.toString)
-      .flatMap(putStrLn)
-      .orDie
-      .as(0)
+      .flatMap(s => putStrLn(s))
+      .exitCode
 }

@@ -4,7 +4,9 @@ import cats.MonadError
 import cats.implicits._
 import com.github.nbenns.shared.Conversions.strToLong
 import com.github.nbenns.shared.File.fileReadStreamCommaSep
-import com.github.nbenns.shared.intcodecomputer.ProgramState.PrgState
+import com.github.nbenns.shared.intcodecomputer.CPU.CPU
+import com.github.nbenns.shared.intcodecomputer.Memory.Memory
+import com.github.nbenns.shared.intcodecomputer.ProgramState._
 import zio.ZIO
 import zio.console.{Console, putStrLn}
 import zio.interop.catz._
@@ -13,52 +15,53 @@ import zio.stream.Stream
 import zio.stream.interop.catz._
 
 package object intcodecomputer {
-  type Program[+E, +A] = ZIO[Console with ProgramState, Option[E], A]
+  type IProgram[+E, +A] = ZIO[Any, Option[E], A]
+  type RProgram[-R, +E, +A] = ZIO[R, Option[E], A]
+  type Program[+E, +A] = ZIO[Console with CPU with Memory, Option[E], A]
 
   object Program {
-    def succeed[A](a: A): Program[Nothing, A] = ZIO.succeed(a)
-    def fail[E](ex: E): Program[E, Nothing] = ZIO.fail(ex.some)
-    def end: Program[Nothing, Nothing] = ZIO.fail(none)
+    def succeed[A](a: A): IProgram[Nothing, A] = ZIO.succeed(a)
+    def fail[E](ex: E): IProgram[E, Nothing] = ZIO.fail(ex.some)
+    def end: IProgram[Nothing, Nothing] = ZIO.fail(none)
 
-    def state: Program[Nothing, PrgState] = ZIO.access[ProgramState](_.programState)
+    implicit def progErr[R, E]: MonadError[RProgram[R, E, *], E] = new MonadError[RProgram[R, E, *], E] {
+      override def flatMap[A, B](fa: RProgram[R, E, A])(f: A => RProgram[R, E, B]): RProgram[R, E, B] =
+        MonadError[ZIO[R, Option[E], *], Option[E]].flatMap(fa)(f)
 
-    implicit def progErr[E]: MonadError[Program[E, *], E] = new MonadError[Program[E, *], E] {
-      override def flatMap[A, B](fa: Program[E, A])(f: A => Program[E, B]): Program[E, B] =
-        MonadError[ZIO[Console with ProgramState, Option[E], *], Option[E]].flatMap(fa)(f)
+      override def tailRecM[A, B](a: A)(f: A => RProgram[R, E, Either[A, B]]): RProgram[R, E, B] =
+        MonadError[ZIO[R, Option[E], *], Option[E]].tailRecM(a)(f)
 
-      override def tailRecM[A, B](a: A)(f: A => Program[E, Either[A, B]]): Program[E, B] =
-        MonadError[ZIO[Console with ProgramState, Option[E], *], Option[E]].tailRecM(a)(f)
+      override def raiseError[A](e: E): RProgram[R, E, A] =
+        MonadError[ZIO[R, Option[E], *], Option[E]].raiseError(e.some)
 
-      override def raiseError[A](e: E): Program[E, A] =
-        MonadError[ZIO[Console with ProgramState, Option[E], *], Option[E]].raiseError(e.some)
-
-      override def handleErrorWith[A](fa: Program[E, A])(f: E => Program[E, A]): Program[E, A] =
-        MonadError[ZIO[Console with ProgramState, Option[E], *], Option[E]].handleErrorWith(fa){
+      override def handleErrorWith[A](fa: RProgram[R, E, A])(f: E => RProgram[R, E, A]): RProgram[R, E, A] =
+        MonadError[ZIO[R, Option[E], *], Option[E]].handleErrorWith(fa){
           case Some(e) => f(e)
           case None    => Program.end
         }
 
-      override def pure[A](x: A): Program[E, A] =
-        MonadError[ZIO[Console with ProgramState, Option[E], *], Option[E]].pure(x)
+      override def pure[A](x: A): RProgram[R, E, A] =
+        MonadError[ZIO[R, Option[E], *], Option[E]].pure(x)
     }
 
     def loadMemory(chunkSize: Int)(fileChannel: AsynchronousFileChannel): ZIO[Console, Exception, List[Long]] =
       fileReadStreamCommaSep(chunkSize, fileChannel)
         .flatMap(strToLong[Stream])
         .runCollect
+        .map(_.toList)
         .tap(_ => putStrLn("Loading Memory"))
 
-    def runtimeEnv: ZIO[Console with ProgramState, Nothing, Unit] = {
+    def runtimeEnv: ZIO[Console with CPU with Memory, Nothing, Unit] = {
       val result =
         putStrLn("Executing Program")
-          .flatMap(_ => CPU.run)
+          .zipRight(CPU.run)
           .optional
           .refineToOrDie[Error]
-          .catchAll(Error.asString andThen putStrLn)
+          .catchAll(err => putStrLn(Error.asString(err)))
 
-      val debug = ProgramState.debug.flatMap(putStrLn)
+      val debug = ProgramState.debug.flatMap(putStrLn(_))
 
-      result *> debug
+      result *> debug.ignore
     }
   }
 }

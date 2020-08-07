@@ -4,34 +4,40 @@ import cats.implicits._
 import com.github.nbenns.shared.Conversions._
 import com.github.nbenns.shared.intcodecomputer.Program._
 import com.github.nbenns.shared.intcodecomputer.ValueType.AbsPointer
+import zio.{Has, Ref, ZIO, ZLayer}
 import zio.console._
 
-final case class CPU(instructionPointer: AbsPointer, dataPointer: AbsPointer)
-
 object CPU {
-  val getCPU: Program[Nothing, CPU] = Program.state.flatMap(_.cpu.get)
+  type CPU = Has[CPU.Service]
 
-  def setCPU(cpu: CPU): Program[Nothing, Unit] =
-    Program.state.flatMap(_.cpu.set(cpu))
+  class Service(ip: Ref[AbsPointer], dp: Ref[AbsPointer]) {
+    def getIP: IProgram[Nothing, AbsPointer] = ip.get
+    def setIP(ipPtr: AbsPointer): IProgram[Nothing, Unit] = ip.set(ipPtr)
+    def updateIP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit] = ip.update(f)
 
-  def updateCPU(f: CPU => CPU): Program[Nothing, Unit] =
-    Program.state.flatMap(_.cpu.modify(c => ((), f(c))))
+    def getDP: IProgram[Nothing, AbsPointer] = dp.get
+    def setDP(dpPtr: AbsPointer): IProgram[Nothing, Unit] = dp.set(dpPtr)
+    def updateDP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit] = dp.update(f)
+  }
 
-  val getIP: Program[Nothing, AbsPointer] = getCPU.map(_.instructionPointer)
+  val live: ZLayer[Any, Nothing, Has[Service]] =
+    Ref.make(AbsPointer(0))
+      .zip(Ref.make(AbsPointer(0)))
+      .map { case (ip, dp) => new Service(ip, dp) }.toLayer
 
-  def setIP(ipPtr: AbsPointer): Program[Nothing, Unit] =
-    getCPU.map(_.copy(instructionPointer = ipPtr)).flatMap(setCPU)
+  val getIP: RProgram[CPU, Nothing, AbsPointer] = ZIO.accessM(_.get.getIP)
 
-  def updateIP(f: AbsPointer => AbsPointer): Program[Nothing, Unit] =
-    updateCPU(cpu => cpu.copy(instructionPointer = f(cpu.instructionPointer)))
+  def setIP(ipPtr: AbsPointer): RProgram[CPU, Nothing, Unit] = ZIO.accessM(_.get.setIP(ipPtr))
 
-  val getDP: Program[Nothing, AbsPointer] = getCPU.map(_.dataPointer)
+  def updateIP(f: AbsPointer => AbsPointer): RProgram[CPU, Nothing, Unit] =
+    ZIO.accessM(_.get.updateIP(f))
 
-  def setDP(dpPtr: AbsPointer): Program[Nothing, Unit] =
-    getCPU.map(_.copy(dataPointer = dpPtr)).flatMap(setCPU)
+  val getDP: RProgram[CPU, Nothing, AbsPointer] = ZIO.accessM(_.get.getDP)
 
-  def updateDP(f: AbsPointer => AbsPointer): Program[Nothing, Unit] =
-    updateCPU(cpu => cpu.copy(dataPointer = f(cpu.dataPointer)))
+  def setDP(dpPtr: AbsPointer): RProgram[CPU, Nothing, Unit] = ZIO.accessM(_.get.setDP(dpPtr))
+
+  def updateDP(f: AbsPointer => AbsPointer): RProgram[CPU, Nothing, Unit] =
+    ZIO.accessM(_.get.updateDP(f))
 
   val execute: Instruction => Program[Throwable, Unit] = {
     case Instruction.Add(aVT, bVT, resPointer) =>

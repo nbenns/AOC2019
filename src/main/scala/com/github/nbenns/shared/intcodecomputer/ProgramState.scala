@@ -1,41 +1,26 @@
 package com.github.nbenns.shared.intcodecomputer
 
-import com.github.nbenns.shared.intcodecomputer.ValueType.AbsPointer
-import zio.{Ref, UIO, ZIO}
-import cats.implicits._
-
-trait ProgramState {
-  val programState: ProgramState.PrgState
-}
+import com.github.nbenns.shared.intcodecomputer.CPU.{CPU, getDP, getIP}
+import com.github.nbenns.shared.intcodecomputer.Memory.{Memory, getMemory}
+import zio.{ZIO, ZLayer}
 
 object ProgramState {
-  trait PrgState {
-    val memory: Ref[Memory]
-    val cpu: Ref[CPU]
-  }
+  def deps(initialMemory: List[Long]): ZLayer[Any, Nothing, CPU with Memory] =
+    CPU.live ++ Memory.live(initialMemory)
 
-  def bootup(memory: List[Long]): UIO[PrgState] =
+  def debug: ZIO[CPU with Memory, Option[Nothing], String] =
     for {
-      m  <- Ref.make(Memory(memory ++ (0 to 1023).toList.as(0)))
-      c  <- Ref.make(CPU(AbsPointer(0), AbsPointer(0)))
-    } yield new PrgState {
-      override val memory: Ref[Memory] = m
-      override val cpu: Ref[CPU] = c
-    }
-
-  def debug: ZIO[ProgramState, Nothing, String] =
-    for {
-      prgState <- ZIO.access[ProgramState](_.programState)
-      mem      <- prgState.memory.get
-      cpu      <- prgState.cpu.get
+      mem      <- getMemory
+      ip       <- getIP
+      dp       <- getDP
     } yield s"""
          |*** DEBUG ***
          |
          |CPU:
-         |  Instruction Pointer: ${cpu.instructionPointer.ref}
-         |  Data Pointer:        ${cpu.dataPointer.ref}
+         |  Instruction Pointer: ${ip}
+         |  Data Pointer:        ${dp}
          |
          |Memory Dump:
-         |${mem.values.mkString(",")}
+         |${mem.mkString(",")}
          |""".stripMargin
 }

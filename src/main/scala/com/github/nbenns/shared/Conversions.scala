@@ -3,6 +3,8 @@ package com.github.nbenns.shared
 import cats.{ApplicativeError, MonadError}
 import cats.implicits._
 
+import scala.language.higherKinds
+
 object Conversions {
   def strToLong[F[_, _]](str: String)
   (implicit apError: ApplicativeError[F[NumberFormatException, *], NumberFormatException]): F[NumberFormatException, Long] =
