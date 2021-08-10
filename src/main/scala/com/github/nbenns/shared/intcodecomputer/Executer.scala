@@ -1,56 +1,11 @@
 package com.github.nbenns.shared.intcodecomputer
 
-import com.github.nbenns.shared.Conversions.*
+import com.github.nbenns.shared.Conversions.{longToInt, strToLong}
+import com.github.nbenns.shared.intcodecomputer.CPU.{getDP, getIP, setDP, setIP}
 import com.github.nbenns.shared.intcodecomputer.ValueType.AbsPointer
-import zio.*
 import zio.Console.*
 
-trait CPU {
-  def getIP: IProgram[Nothing, AbsPointer]
-  def setIP(ipPtr: AbsPointer): IProgram[Nothing, Unit]
-  def updateIP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit]
-
-  def getDP: IProgram[Nothing, AbsPointer]
-  def setDP(dpPtr: AbsPointer): IProgram[Nothing, Unit]
-  def updateDP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit]
-}
-
-object CPU {
-  private case class Live(ip: Ref[AbsPointer], dp: Ref[AbsPointer]) extends CPU {
-    def getIP: IProgram[Nothing, AbsPointer] = ip.get
-    def setIP(ipPtr: AbsPointer): IProgram[Nothing, Unit] = ip.set(ipPtr)
-    def updateIP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit] = ip.update(f)
-
-    def getDP: IProgram[Nothing, AbsPointer] = dp.get
-    def setDP(dpPtr: AbsPointer): IProgram[Nothing, Unit] = dp.set(dpPtr)
-    def updateDP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit] = dp.update(f)
-  }
-
-  val live: ZLayer[Any, Nothing, Has[CPU]] =
-    Ref
-      .make(AbsPointer(0))
-      .zip(Ref.make(AbsPointer(0)))
-      .map(Live.apply)
-      .toLayer
-
-  val getIP: RProgram[Has[CPU], Nothing, AbsPointer] =
-    ZIO.serviceWith(_.getIP)
-
-  def setIP(ipPtr: AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.setIP(ipPtr))
-
-  def updateIP(f: AbsPointer => AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.updateIP(f))
-
-  val getDP: RProgram[Has[CPU], Nothing, AbsPointer] =
-    ZIO.serviceWith(_.getDP)
-
-  def setDP(dpPtr: AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.setDP(dpPtr))
-
-  def updateDP(f: AbsPointer => AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.updateDP(f))
-
+trait Executer {
   val execute: Instruction => Program[Throwable, Unit] = {
     case Instruction.Add(aVT, bVT, resPointer) =>
       for {
@@ -140,10 +95,4 @@ object CPU {
 
     case Instruction.End => Program.end
   }
-
-  val run: Program[Throwable, Unit] =
-    Instruction
-      .read
-      .flatMap((new Executer {}).execute)
-      .forever
 }

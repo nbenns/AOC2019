@@ -1,21 +1,33 @@
 name := "AOC2019"
 
-version := "0.1"
+//version := "0.1"
 
-scalaVersion := "2.13.1"
+scalaVersion := "3.0.1"
 
-addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full)
+scalacOptions ++= Seq(
+  "-unchecked",
+  "-deprecation",
+  "utf8",
+  "-feature",
+  "literal-types",
+  "-Xfatal-warnings",
+  "-Yexplicit-nulls",
+  "-source:future"
+)
 
-val zioVersion = "1.0.0"
-val catsVersion = "2.1.1"
+//addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.13.0" cross CrossVersion.full)
+
+val zioVersion = "2.0.0-M1"
+val catsVersion = "2.6.1"
+val catsEffectVersion = "3.2.1"
 
 libraryDependencies ++= Seq(
   "dev.zio"       %% "zio"              % zioVersion,
-  "dev.zio"       %% "zio-nio"          % "1.0.0-RC9",
+  "dev.zio"       %% "zio-nio"          % "1.0.0-RC11",
   "dev.zio"       %% "zio-streams"      % zioVersion,
-  "org.typelevel" %% "cats-core"        % catsVersion,
-  "org.typelevel" %% "cats-effect"      % catsVersion,
-  "dev.zio"       %% "zio-interop-cats" % "2.1.4.0",
+//  "org.typelevel" %% "cats-core"        % catsVersion,
+//  "org.typelevel" %% "cats-effect"      % catsEffectVersion,
+//  "dev.zio"       %% "zio-interop-cats" % "3.1.1.0",
   "dev.zio"       %% "zio-test"         % zioVersion    % "test",
   "dev.zio"       %% "zio-test-sbt"     % zioVersion    % "test"
 )

@@ -1,4 +1,4 @@
-import zio.test._
+import zio.test.*
 
 object All extends DefaultRunnableSpec {
   val spec = suite("All Tests")(

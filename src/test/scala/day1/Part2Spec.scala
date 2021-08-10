@@ -2,7 +2,7 @@ package day1
 
 import com.github.nbenns.day1.Part2
 import zio.test.Assertion.equalTo
-import zio.test._
+import zio.test.*
 
 object Part2Spec {
   val test1 = test("For a mass of 14") {

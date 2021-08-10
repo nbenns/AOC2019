@@ -1,8 +1,8 @@
 package day1
 
 import com.github.nbenns.day1.Part1
-import zio.test.Assertion._
-import zio.test._
+import zio.test.Assertion.*
+import zio.test.*
 
 object Part1Spec {
   val test1 = test("For a mass of 12") {
