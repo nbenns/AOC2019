@@ -6,52 +6,52 @@ import zio.*
 import zio.Console.*
 
 trait CPU {
-  def getIP: IProgram[Nothing, AbsPointer]
-  def setIP(ipPtr: AbsPointer): IProgram[Nothing, Unit]
-  def updateIP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit]
+  def getIP: ZIO[Any, None.type, AbsPointer]
+  def setIP(ipPtr: AbsPointer): ZIO[Any, None.type, Unit]
+  def updateIP(f: AbsPointer => AbsPointer): ZIO[Any, None.type, Unit]
 
-  def getDP: IProgram[Nothing, AbsPointer]
-  def setDP(dpPtr: AbsPointer): IProgram[Nothing, Unit]
-  def updateDP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit]
+  def getDP: ZIO[Any, None.type, AbsPointer]
+  def setDP(dpPtr: AbsPointer): ZIO[Any, None.type, Unit]
+  def updateDP(f: AbsPointer => AbsPointer): ZIO[Any, None.type, Unit]
 }
 
 object CPU {
   private case class Live(ip: Ref[AbsPointer], dp: Ref[AbsPointer]) extends CPU {
-    def getIP: IProgram[Nothing, AbsPointer] = ip.get
-    def setIP(ipPtr: AbsPointer): IProgram[Nothing, Unit] = ip.set(ipPtr)
-    def updateIP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit] = ip.update(f)
+    def getIP: ZIO[Any, None.type, AbsPointer] = ip.get
+    def setIP(ipPtr: AbsPointer): ZIO[Any, None.type, Unit] = ip.set(ipPtr)
+    def updateIP(f: AbsPointer => AbsPointer): ZIO[Any, None.type, Unit] = ip.update(f)
 
-    def getDP: IProgram[Nothing, AbsPointer] = dp.get
-    def setDP(dpPtr: AbsPointer): IProgram[Nothing, Unit] = dp.set(dpPtr)
-    def updateDP(f: AbsPointer => AbsPointer): IProgram[Nothing, Unit] = dp.update(f)
+    def getDP: ZIO[Any, None.type, AbsPointer] = dp.get
+    def setDP(dpPtr: AbsPointer): ZIO[Any, None.type, Unit] = dp.set(dpPtr)
+    def updateDP(f: AbsPointer => AbsPointer): ZIO[Any, None.type, Unit] = dp.update(f)
   }
 
-  val live: ZLayer[Any, Nothing, Has[CPU]] =
+  val live: ZLayer[Any, Nothing, CPU] =
     Ref
       .make(AbsPointer(0))
       .zip(Ref.make(AbsPointer(0)))
       .map(Live.apply)
       .toLayer
 
-  val getIP: RProgram[Has[CPU], Nothing, AbsPointer] =
-    ZIO.serviceWith(_.getIP)
+  val getIP: ZIO[CPU, None.type, AbsPointer] =
+    ZIO.serviceWithZIO(_.getIP)
 
-  def setIP(ipPtr: AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.setIP(ipPtr))
+  def setIP(ipPtr: AbsPointer): ZIO[CPU, None.type, Unit] =
+    ZIO.serviceWithZIO(_.setIP(ipPtr))
 
-  def updateIP(f: AbsPointer => AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.updateIP(f))
+  def updateIP(f: AbsPointer => AbsPointer): ZIO[CPU, None.type, Unit] =
+    ZIO.serviceWithZIO(_.updateIP(f))
 
-  val getDP: RProgram[Has[CPU], Nothing, AbsPointer] =
-    ZIO.serviceWith(_.getDP)
+  val getDP: ZIO[CPU, None.type, AbsPointer] =
+    ZIO.serviceWithZIO(_.getDP)
 
-  def setDP(dpPtr: AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.setDP(dpPtr))
+  def setDP(dpPtr: AbsPointer): ZIO[CPU, None.type, Unit] =
+    ZIO.serviceWithZIO(_.setDP(dpPtr))
 
-  def updateDP(f: AbsPointer => AbsPointer): RProgram[Has[CPU], Nothing, Unit] =
-    ZIO.serviceWith(_.updateDP(f))
+  def updateDP(f: AbsPointer => AbsPointer): ZIO[CPU, None.type, Unit] =
+    ZIO.serviceWithZIO(_.updateDP(f))
 
-  val execute: Instruction => Program[Throwable, Unit] = {
+  val execute: Instruction => ZIO[Console & CPU & Memory, Option[Throwable], Unit] = {
     case Instruction.Add(aVT, bVT, resPointer) =>
       for {
         a <- ValueType.getValue(aVT)
@@ -141,9 +141,9 @@ object CPU {
     case Instruction.End => Program.end
   }
 
-  val run: Program[Throwable, Unit] =
+  val run: ZIO[Console & CPU & Memory, Option[Throwable], Unit] =
     Instruction
       .read
-      .flatMap((new Executer {}).execute)
+      .flatMap((new Bootstrap {}).execute)
       .forever
 }

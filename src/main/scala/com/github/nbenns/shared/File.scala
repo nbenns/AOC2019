@@ -49,13 +49,13 @@ object File {
 
   def fileReadStreamByLine(chunkSize: Int, fileChannel: AsynchronousFileChannel): Stream[Exception, String] =
     fileReadStreamByChunk(chunkSize, fileChannel)
-      .aggregate(ZTransducer.utf8Decode)
-      .aggregate(ZTransducer.splitLines)
+      .via(ZPipeline.utf8Decode)
+      .via(ZPipeline.splitLines)
 
   def fileReadStreamCommaSep(chunkSize: Int, fileChannel: AsynchronousFileChannel): Stream[Exception, String] =
     fileReadStreamByChunk(chunkSize, fileChannel)
-      .aggregate(ZTransducer.utf8Decode)
-      .aggregate(ZTransducer.splitLines)
-      .aggregate(ZTransducer.splitOn(","))
+      .via(ZPipeline.utf8Decode)
+      .via(ZPipeline.splitLines)
+      .via(ZPipeline.splitOn(","))
       .flatMap(str => ZStream.attemptNullable(str.trim))
 }

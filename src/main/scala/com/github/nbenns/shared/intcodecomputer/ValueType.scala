@@ -1,7 +1,7 @@
 package com.github.nbenns.shared.intcodecomputer
 
 import com.github.nbenns.shared.Conversions.*
-import zio.Has
+import zio.ZIO
 
 sealed trait ValueType extends Product with Serializable
 
@@ -13,7 +13,7 @@ object ValueType {
 
   abstract case class AbsPointer private(ref: Int) extends ValueType
   object AbsPointer {
-    def apply(l: Long): IProgram[Instruction.Error, AbsPointer] =
+    def apply(l: Long): ZIO[Any, Option[Instruction.Error], AbsPointer] =
       Program
         .fromEither(longToInt(l))
         .mapBoth(
@@ -26,7 +26,7 @@ object ValueType {
 
   abstract case class RefPointer private(ref: Int) extends ValueType
   object RefPointer {
-    def apply(l: Long): IProgram[Instruction.Error, RefPointer] =
+    def apply(l: Long): ZIO[Any, Option[Instruction.Error], RefPointer] =
       Program
         .fromEither(longToInt(l))
         .mapBoth(
@@ -35,13 +35,13 @@ object ValueType {
         )
   }
 
-  val getValue: ValueType => RProgram[Has[CPU] & Has[Memory], Memory.Error, Long] = {
+  val getValue: ValueType => ZIO[CPU & Memory, Option[Memory.Error], Long] = {
     case Value(i)      => Program.succeed(i)
     case AbsPointer(i) => Memory.read(i)
     case RefPointer(i) => CPU.getDP.map(_.ref + i).flatMap(Memory.read)
   }
 
-  def setValue(pointer: AbsPointer, value: Long): RProgram[Has[Memory], Memory.Error, Unit] =
+  def setValue(pointer: AbsPointer, value: Long): ZIO[Memory, Option[Memory.Error], Unit] =
     Memory.write(pointer.ref, value)
 
   def incPointer(pointer: AbsPointer): AbsPointer = AbsPointer(pointer.ref + 1)

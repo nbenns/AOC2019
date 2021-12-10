@@ -4,9 +4,10 @@ import com.github.nbenns.shared.Conversions.{longToInt, strToLong}
 import com.github.nbenns.shared.intcodecomputer.CPU.{getDP, getIP, setDP, setIP}
 import com.github.nbenns.shared.intcodecomputer.ValueType.AbsPointer
 import zio.Console.*
+import zio.{Console, ZIO}
 
-trait Executer {
-  val execute: Instruction => Program[Throwable, Unit] = {
+trait Bootstrap {
+  val execute: Instruction => ZIO[Console & CPU & Memory, Option[Throwable], Unit] = {
     case Instruction.Add(aVT, bVT, resPointer) =>
       for {
         a <- ValueType.getValue(aVT)

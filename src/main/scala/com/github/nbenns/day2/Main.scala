@@ -17,6 +17,6 @@ object Main extends App {
       )
       .map(_.updated(1, 12L).updated(2, 2L))
       .map(ProgramState.deps)
-      .flatMap(pstate => Program.runtimeEnv.provideCustomLayer(pstate))
+      .flatMap(pstate => Program.runtimeEnv.provideCustom(pstate))
       .exitCode
 }

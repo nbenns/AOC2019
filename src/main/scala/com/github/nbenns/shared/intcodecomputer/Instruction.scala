@@ -2,7 +2,7 @@ package com.github.nbenns.shared.intcodecomputer
 
 import com.github.nbenns.shared.Conversions.*
 import zio.Console.*
-import zio.{Has, ZIO}
+import zio.*
 
 enum Instruction {
   case Add(a: ValueType, b: ValueType, res: ValueType.AbsPointer)
@@ -47,14 +47,14 @@ object Instruction {
     }
   }
 
-  private val readAndNext: RProgram[Has[CPU] & Has[Memory], Memory.Error, Long] =
+  private val readAndNext: ZIO[CPU & Memory, Option[Memory.Error], Long] =
     for {
       ip <- CPU.getIP
       v  <- ValueType.getValue(ip)
       _  <- CPU.updateIP(ValueType.incPointer)
     } yield v
 
-  private def buildParameter(pm: ParameterMode)(v: Long): IProgram[Instruction.Error, ValueType] =
+  private def buildParameter(pm: ParameterMode)(v: Long): ZIO[Any, Option[Instruction.Error], ValueType] =
     pm match {
       case ParameterMode.PositionMode => ValueType.AbsPointer(v)
       case ParameterMode.ImmediateMode => Program.succeed(ValueType.Value(v))
@@ -67,7 +67,7 @@ object Instruction {
       .headOption
       .getOrElse(ParameterMode.PositionMode)
 
-  private def buildAdd(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildAdd(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
     val buildParam2 = buildParameter(getParamModeForParam(2, parameterModes))
 
@@ -78,7 +78,7 @@ object Instruction {
     } yield Add(aPointer, bPointer, resPointer)
   }
 
-  private def buildMul(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildMul(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
     val buildParam2 = buildParameter(getParamModeForParam(2, parameterModes))
 
@@ -89,12 +89,12 @@ object Instruction {
     } yield Mul(aPointer, bPointer, resPointer)
   }
 
-  private def buildInput(): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Input] =
+  private def buildInput(): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Input] =
     for {
       resPointer <- readAndNext.flatMap(ValueType.AbsPointer.apply)
     } yield Input(resPointer)
 
-  private def buildOutput(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildOutput(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
 
     for {
@@ -102,7 +102,7 @@ object Instruction {
     } yield Output(aPointer)
   }
 
-  private def buildJumpIfTrue(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildJumpIfTrue(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
     val buildParam2 = buildParameter(getParamModeForParam(2, parameterModes))
 
@@ -112,7 +112,7 @@ object Instruction {
     } yield JumpIfTrue(value, jumpTo)
   }
 
-  private def buildJumpIfFalse(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildJumpIfFalse(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
     val buildParam2 = buildParameter(getParamModeForParam(2, parameterModes))
 
@@ -122,7 +122,7 @@ object Instruction {
     } yield JumpIfFalse(value, jumpTo)
   }
 
-  private def buildLessThan(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildLessThan(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
     val buildParam2 = buildParameter(getParamModeForParam(2, parameterModes))
 
@@ -133,7 +133,7 @@ object Instruction {
     } yield LessThan(aPointer, bPointer, resPointer)
   }
 
-  private def buildEquals(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildEquals(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
     val buildParam2 = buildParameter(getParamModeForParam(2, parameterModes))
 
@@ -144,7 +144,7 @@ object Instruction {
     } yield Equals(aPointer, bPointer, resPointer)
   }
 
-  private def buildDPAdd(parameterModes: List[ParameterMode]): RProgram[Has[CPU] & Has[Memory], Instruction.Error | Memory.Error, Instruction] = {
+  private def buildDPAdd(parameterModes: List[ParameterMode]): ZIO[CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] = {
     val buildParam1 = buildParameter(getParamModeForParam(1, parameterModes))
 
     for {
@@ -152,9 +152,9 @@ object Instruction {
     } yield DPAdd(aPointer)
   }
 
-  private def buildEnd: RProgram[Any, Nothing, Instruction] = Program.succeed(End)
+  private def buildEnd: ZIO[Any, Nothing, Instruction] = Program.succeed(End)
 
-  def read: Program[Instruction.Error | Memory.Error, Instruction] =
+  def read: ZIO[Console & CPU & Memory, Option[Instruction.Error | Memory.Error], Instruction] =
     for {
       ip        <- CPU.getIP
       opCode    <- readAndNext

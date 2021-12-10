@@ -2,7 +2,7 @@ name := "AOC2019"
 
 //version := "0.1"
 
-scalaVersion := "3.0.1"
+scalaVersion := "3.1.0"
 
 scalacOptions ++= Seq(
   "-unchecked",
@@ -17,7 +17,7 @@ scalacOptions ++= Seq(
 
 //addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.13.0" cross CrossVersion.full)
 
-val zioVersion = "2.0.0-M1"
+val zioVersion = "2.0.0-M6-2"
 val catsVersion = "2.6.1"
 val catsEffectVersion = "3.2.1"
 

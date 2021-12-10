@@ -2,13 +2,13 @@ package com.github.nbenns.shared.intcodecomputer
 
 import com.github.nbenns.shared.intcodecomputer.CPU.{getDP, getIP}
 import com.github.nbenns.shared.intcodecomputer.Memory.getMemory
-import zio.{Has, ZIO, ZLayer}
+import zio.*
 
 object ProgramState {
-  def deps(initialMemory: List[Long]): ZLayer[Any, Nothing, Has[CPU] & Has[Memory]] =
+  def deps(initialMemory: List[Long]): ZLayer[Any, Nothing, CPU & Memory] =
     CPU.live ++ Memory.live(initialMemory)
 
-  def debug: ZIO[Has[CPU] & Has[Memory], Option[Nothing], String] =
+  def debug: ZIO[CPU & Memory, Option[Nothing], String] =
     for {
       mem      <- getMemory
       ip       <- getIP

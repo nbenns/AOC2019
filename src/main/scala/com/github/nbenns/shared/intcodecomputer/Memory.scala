@@ -1,11 +1,11 @@
 package com.github.nbenns.shared.intcodecomputer
 
-import zio.{Has, Ref, ZIO, ZLayer}
+import zio.*
 
 class Memory(memory: Ref[List[Long]]) {
-  def getMemory: IProgram[Nothing, List[Long]] = memory.get
-  def setMemory(mem: List[Long]): IProgram[Nothing, Unit] = memory.set(mem)
-  def updateMemory(f: List[Long] => List[Long]): IProgram[Nothing, Unit] = memory.update(f)
+  def getMemory: ZIO[Any, Nothing, List[Long]] = memory.get
+  def setMemory(mem: List[Long]): ZIO[Any, Nothing, Unit] = memory.set(mem)
+  def updateMemory(f: List[Long] => List[Long]): ZIO[Any, Nothing, Unit] = memory.update(f)
 }
 
 object Memory {
@@ -32,27 +32,27 @@ object Memory {
     }
   }
 
-  def live(initial: List[Long]): ZLayer[Any, Nothing, Has[Memory]] =
+  def live(initial: List[Long]): ZLayer[Any, Nothing, Memory] =
     Ref.make(initial ++ (0 to 1023).toList.map(_ => 0L))
       .map(new Memory(_))
       .toLayer
 
-  def getMemory: RProgram[Has[Memory], Nothing, List[Long]] =
-    ZIO.serviceWith(_.getMemory)
+  def getMemory: ZIO[Memory, Nothing, List[Long]] =
+    ZIO.serviceWithZIO(_.getMemory)
 
-  def setMemory(mem: List[Long]): RProgram[Has[Memory], Nothing, Unit] =
-    ZIO.serviceWith(_.setMemory(mem))
+  def setMemory(mem: List[Long]): ZIO[Memory, Nothing, Unit] =
+    ZIO.serviceWithZIO(_.setMemory(mem))
 
-  def updateMemory(f: List[Long] => List[Long]): RProgram[Has[Memory], Nothing, Unit] =
-    ZIO.serviceWith(_.updateMemory(f))
+  def updateMemory(f: List[Long] => List[Long]): ZIO[Memory, Nothing, Unit] =
+    ZIO.serviceWithZIO(_.updateMemory(f))
 
-  def read(n: Int): RProgram[Has[Memory], Error, Long] =
+  def read(n: Int): ZIO[Memory, Option[Error], Long] =
     getMemory.flatMap { mem =>
       if (n >= 0 && n < mem.length) Program.succeed(mem(n))
       else Program.fail(Error.InvalidMemoryReadLocation(n))
     }
 
-  def write(n: Int, v: Long): RProgram[Has[Memory], Error, Unit] =
+  def write(n: Int, v: Long): ZIO[Memory, Option[Error], Unit] =
     getMemory.flatMap { mem =>
       if (n >= 0 && n < mem.length) setMemory(mem.updated(n, v))
       else Program.fail(Error.InvalidMemoryWriteLocation(n))
